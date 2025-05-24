@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Content Discovery Hub</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .setup-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .api-setup {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .api-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .api-input {
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .api-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .setup-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+
+        .status-indicator.active {
+            background: #10b981;
+        }
+
+        .main-app {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 25px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .panel h2 {
+            margin-bottom: 20px;
+            color: #4a5568;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-section {
+            margin-bottom: 25px;
+        }
+
+        .topic-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }
+
+        .topic-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .search-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .search-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .source-toggles {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .source-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: #f7fafc;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        .content-item {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .content-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.1);
+        }
+
+        .content-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .content-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #2d3748;
+            line-height: 1.4;
+            font-size: 1rem;
+        }
+
+        .content-snippet {
+            color: #4a5568;
+            line-height: 1.5;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+        }
+
+        .content-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: #3b82f6;
+            text-decoration: none;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+
+        .content-link:hover {
+            text-decoration: underline;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .tag {
+            background: #e2e8f0;
+            color: #4a5568;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .btn-save {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-ai {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .ai-suggestions {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 12px;
+            font-size: 0.85rem;
+        }
+
+        .suggestion-item {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border-left: 3px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .suggestion-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .feed-area {
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .feed-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .feed-area::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .feed-area::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ddd;
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .rss-management {
+            margin-top: 20px;
+        }
+
+        .rss-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .add-rss-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .rss-list {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .rss-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: #f7fafc;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.8rem;
+        }
+
+        .remove-rss {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.7rem;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: white;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            opacity: 0.8;
+        }
+
+        .no-content {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        @media (max-width: 1024px) {
+            .main-app {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .api-setup {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .alert {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            color: #92400e;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🆓 Free Content Discovery Hub</h1>
+            <p>Discover unlimited content using completely free APIs</p>
+        </div>
+
+        <!-- API Setup Panel -->
+        <div class="setup-panel">
+            <h2>🔧 API Configuration (Optional for Enhanced Features)</h2>
+            <div class="alert">
+                <strong>Good news!</strong> Hacker News, RSS feeds, and Wikipedia work without any API keys. Add the optional keys below for more sources.
+            </div>
+            
+            <div class="api-setup">
+                <div class="api-input-group">
+                    <label><strong>NewsAPI Key</strong> (Free: 1,000/day)</label>
+                    <input type="text" class="api-input" id="newsApiKey" placeholder="Enter your NewsAPI key (optional)">
+                    <div class="setup-status">
+                        <div class="status-indicator" id="newsStatus"></div>
+                        <span>NewsAPI Status</span>
+                    </div>
+                </div>
+                
+                <div class="api-input-group">
+                    <label><strong>YouTube API Key</strong> (Free: 10,000/day)</label>
+                    <input type="text" class="api-input" id="youtubeApiKey" placeholder="Enter your YouTube API key (optional)">
+                    <div class="setup-status">
+                        <div class="status-indicator" id="youtubeStatus"></div>
+                        <span>YouTube Status</span>
+                    </div>
+                </div>
+                
+                <div class="api-input-group">
+                    <label><strong>Hugging Face Token</strong> (Free AI suggestions)</label>
+                    <input type="text" class="api-input" id="hfToken" placeholder="Enter your HF token (optional)">
+                    <div class="setup-status">
+                        <div class="status-indicator" id="hfStatus"></div>
+                        <span>AI Suggestions Status</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat">
+                <span class="stat-number" id="todayCount">0</span>
+                <span class="stat-label">Today's Discoveries</span>
+            </div>
+            <div class="stat">
+                <span class="stat-number" id="savedCount">0</span>
+                <span class="stat-label">Saved Items</span>
+            </div>
+            <div class="stat">
+                <span class="stat-number" id="sourceCount">7</span>
+                <span class="stat-label">Active Sources</span>
+            </div>
+        </div>
+
+        <!-- Main App -->
+        <div class="main-app">
+            <!-- Left Panel: Search & Sources -->
+            <div class="panel">
+                <h2>🔍 Topic Discovery</h2>
+                
+                <div class="search-section">
+                    <input type="text" class="topic-input" id="topicInput" placeholder="Enter any topic (AI, productivity, startups...)">
+                    <button class="search-btn" id="searchBtn" onclick="searchContent()">
+                        🚀 Discover Content
+                    </button>
+                </div>
+
+                <div class="source-toggles">
+                    <div class="source-toggle">
+                        <input type="checkbox" id="includeHN" checked>
+                        <label for="includeHN">Hacker News (Free)</label>
+                    </div>
+                    <div class="source-toggle">
+                        <input type="checkbox" id="includeRSS" checked>
+                        <label for="includeRSS">RSS Feeds (Free)</label>
+                    </div>
+                    <div class="source-toggle">
+                        <input type="checkbox" id="includeWiki" checked>
+                        <label for="includeWiki">Wikipedia (Free)</label>
+                    </div>
+                    <div class="source-toggle">
+                        <input type="checkbox" id="includeNews">
+                        <label for="includeNews">News (API Key)</label>
+                    </div>
+                    <div class="source-toggle">
+                        <input type="checkbox" id="includeYT">
+                        <label for="includeYT">YouTube (API Key)</label>
+                    </div>
+                </div>
+
+                <div class="rss-management">
+                    <h3 style="margin-bottom: 10px; color: #4a5568; font-size: 1rem;">Custom RSS Feeds</h3>
+                    <input type="text" class="rss-input" id="rssInput" placeholder="Enter RSS feed URL">
+                    <button class="add-rss-btn" onclick="addRSSFeed()">Add RSS Feed</button>
+                    
+                    <div class="rss-list" id="rssList"></div>
+                </div>
+            </div>
+
+            <!-- Center Panel: Content Feed -->
+            <div class="panel">
+                <h2>📰 Content Feed</h2>
+                <div class="feed-area" id="contentFeed">
+                    <div class="no-content">
+                        <h3>Ready to discover content!</h3>
+                        <p>Enter a topic and click "Discover Content" to get started</p>
+                        <p style="margin-top: 10px; font-size: 0.8rem;">Sources available without API keys: Hacker News, RSS Feeds, Wikipedia</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Saved Content -->
+            <div class="panel">
+                <h2>💾 Saved Content</h2>
+                <div class="feed-area" id="savedFeed">
+                    <div class="no-content">
+                        <h3>Your saved content</h3>
+                        <p>Save interesting articles to build your content library</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration and State
+        let apiKeys = {
+            newsApi: '',
+            youtube: '',
+            huggingFace: ''
+        };
+
+        let customRSSFeeds = [
+            'https://feeds.feedburner.com/oreilly/radar',
+            'https://blog.ycombinator.com/feed',
+            'https://stratechery.com/feed/',
+            'https://waitbutwhy.com/feed',
+            'http://paulgraham.com/rss.html',
+            'https://blog.openai.com/rss/',
+            'https://ai.googleblog.com/feeds/posts/default'
+        ];
+
+        let savedContent = JSON.parse(localStorage.getItem('savedContent') || '[]');
+        let todayCount = 0;
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAPIKeys();
+            displayRSSFeeds();
+            displaySavedContent();
+            updateStats();
+            
+            // Auto-save API keys when changed
+            document.getElementById('newsApiKey').addEventListener('input', saveAPIKeys);
+            document.getElementById('youtubeApiKey').addEventListener('input', saveAPIKeys);
+            document.getElementById('hfToken').addEventListener('input', saveAPIKeys);
+            
+            // Enter key functionality
+            document.getElementById('topicInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') searchContent();
+            });
+            
+            document.getElementById('rssInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') addRSSFeed();
+            });
+        });
+
+        // API Key Management
+        function loadAPIKeys() {
+            const saved = JSON.parse(localStorage.getItem('apiKeys') || '{}');
+            apiKeys = { ...apiKeys, ...saved };
+            
+            document.getElementById('newsApiKey').value = apiKeys.newsApi || '';
+            document.getElementById('youtubeApiKey').value = apiKeys.youtube || '';
+            document.getElementById('hfToken').value = apiKeys.huggingFace || '';
+            
+            updateAPIStatus();
+        }
+
+        function saveAPIKeys() {
+            apiKeys.newsApi = document.getElementById('newsApiKey').value;
+            apiKeys.youtube = document.getElementById('youtubeApiKey').value;
+            apiKeys.huggingFace = document.getElementById('hfToken').value;
+            
+            localStorage.setItem('apiKeys', JSON.stringify(apiKeys));
+            updateAPIStatus();
+        }
+
+        function updateAPIStatus() {
+            document.getElementById('newsStatus').className = 
+                'status-indicator' + (apiKeys.newsApi ? ' active' : '');
+            document.getElementById('youtubeStatus').className = 
+                'status-indicator' + (apiKeys.youtube ? ' active' : '');
+            document.getElementById('hfStatus').className = 
+                'status-indicator' + (apiKeys.huggingFace ? ' active' : '');
+        }
+
+        // HACKER NEWS API (Completely Free)
+        async function getHackerNewsContent(topic) {
+            try {
+                const topStoriesRes = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
+                const topStoryIds = await topStoriesRes.json();
+                
+                const stories = await Promise.all(
+                    topStoryIds.slice(0, 30).map(async (id) => {
+                        try {
+                            const storyRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
+                            return await storyRes.json();
+                        } catch {
+                            return null;
+                        }
+                    })
+                );
+
+                const validStories = stories.filter(story => story && story.title);
+                const filteredStories = topic 
+                    ? validStories.filter(story => 
+                        story.title?.toLowerCase().includes(topic.toLowerCase())
+                      )
+                    : validStories.slice(0, 15);
+
+                return filteredStories.map(story => ({
+                    title: story.title,
+                    url: story.url || `https://news.ycombinator.com/item?id=${story.id}`,
+                    snippet: story.text || `Hacker News discussion with ${story.descendants || 0} comments`,
+                    source: 'Hacker News',
+                    timestamp: new Date(story.time * 1000).toISOString(),
+                    tags: extractTags(story.title),
+                    score: story.score || 0
+                }));
+            } catch (error) {
+                console.error('Hacker News error:', error);
+                return [];
+            }
+        }
+
+        // RSS FEEDS (Completely Free)
+        async function getRSSContent(feedUrl, topic) {
+            try {
+                const rssApiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=20`;
+                const response = await fetch(rssApiUrl);
+                const data = await response.json();
+
+                if (data.status !== 'ok') return [];
+
+                const filteredItems = topic
+                    ? data.items.filter(item =>
+                        item.title?.toLowerCase().includes(topic.toLowerCase()) ||
+                        item.description?.toLowerCase().includes(topic.toLowerCase())
+                      )
+                    : data.items.slice(0, 10);
+
+                return filteredItems.map(item => ({
+                    title: item.title,
+                    url: item.link,
+                    snippet: stripHtml(item.description || item.content || '').substring(0, 200) + '...',
+                    source: `RSS: ${data.feed?.title || 'Blog'}`,
+                    timestamp: item.pubDate,
+                    tags: extractTags(item.title + ' ' + (item.description || ''))
+                }));
+            } catch (error) {
+                console.error('RSS error:', error);
+                return [];
+            }
+        }
+
+        // WIKIPEDIA API (Completely Free)
+        async function getWikipediaContent(topic) {
+            if (!topic) return [];
+            
+            try {
+                const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/search/${encodeURIComponent(topic)}`;
+                const searchResponse = await fetch(searchUrl);
+                const searchData = await searchResponse.json();
+
+                if (!searchData.pages || searchData.pages.length === 0) return [];
+
+                const articles = await Promise.all(
+                    searchData.pages.slice(0, 3).map(async (page) => {
+                        try {
+                            const contentUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(page.title)}`;
+                            const contentResponse = await fetch(contentUrl);
+                            const contentData = await contentResponse.json();
+                            
+                            return {
+                                title: contentData.title,
+                                url: contentData.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
+                                snippet: contentData.extract || 'Wikipedia article about ' + page.title,
+                                source: 'Wikipedia',
+                                timestamp: new Date().toISOString(),
+                                tags: [topic, 'Reference', 'Encyclopedia'],
+                                imageUrl: contentData.thumbnail?.source
+                            };
+                        } catch {
+                            return null;
+                        }
+                    })
+                );
+
+                return articles.filter(article => article);
+            } catch (error) {
+                console.error('Wikipedia error:', error);
+                return [];
+            }
+        }
+
+        // NEWS API (Requires API Key)
+        async function getNewsContent(topic) {
+            if (!apiKeys.newsApi || !topic) return [];
+            
+            try {
+                const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&sortBy=publishedAt&pageSize=15&apiKey=${apiKeys.newsApi}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.status !== 'ok') return [];
+
+                return data.articles.map(article => ({
+                    title: article.title,
+                    url: article.url,
+                    snippet: article.description || '',
+                    source: `News: ${article.source.name}`,
+                    timestamp: article.publishedAt,
+                    tags: extractTags(article.title + ' ' + (article.description || '')),
+                    imageUrl: article.urlToImage
+                }));
+            } catch (error) {
+                console.error('News API error:', error);
+                return [];
+            }
+        }
+
+        // YOUTUBE API (Requires API Key)
+        async function getYouTubeContent(topic) {
+            if (!apiKeys.youtube || !topic) return [];
+            
+            try {
+                const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(topic)}&type=video&order=relevance&maxResults=10&key=${apiKeys.youtube}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (!data.items) return [];
+
+                return data.items.map(video => ({
+                    title: video.snippet.title,
+                    url: `https://www.youtube.com/watch?v=${video.id.videoId}`,
+                    snippet: video.snippet.description.substring(0, 200) + '...',
+                    source: `YouTube: ${video.snippet.channelTitle}`,
+                    timestamp: video.snippet.publishedAt,
+                    tags: extractTags(video.snippet.title + ' ' + video.snippet.description),
+                    imageUrl: video.snippet.thumbnails.medium?.url
+                }));
+            } catch (error) {
+                console.error('YouTube API error:', error);
+                return [];
+            }
+        }
+
+        // MAIN SEARCH FUNCTION
+        async function searchContent() {
+            const topic = document.getElementById('topicInput').value.trim();
+            if (!topic) {
+                alert('Please enter a topic to search for');
+                return;
+            }
+
+            const searchBtn = document.getElementById('searchBtn');
+            const contentFeed = document.getElementById('contentFeed');
+            
+            // Show loading
+            searchBtn.disabled = true;
+            searchBtn.textContent = '🔍 Searching...';
+            contentFeed.innerHTML = '<div class="loading"><div class="spinner"></div>Discovering content about "' + topic + '"...</div>';
+
+            try {
+                const allContent = [];
+                const options = {
+                    includeHN: document.getElementById('includeHN').checked,
+                    includeRSS: document.getElementById('includeRSS').checked,
+                    includeWiki: document.getElementById('includeWiki').checked,
+                    includeNews: document.getElementById('includeNews').checked,
+                    includeYT: document.getElementById('includeYT').checked
+                };
+
+                // Fetch from all selected sources
+                const promises = [];
+
+                if (options.includeHN) {
+                    promises.push(getHackerNewsContent(topic));
+                }
+
+                if (options.includeRSS) {
+                    customRSSFeeds.forEach(feedUrl => {
+                        promises.push(getRSSContent(feedUrl, topic));
+                    });
+                }
+
+                if (options.includeWiki) {
+                    promises.push(getWikipediaContent(topic));
+                }
+
+                if (options.includeNews && apiKeys.newsApi) {
+                    promises.push(getNewsContent(topic));
+                }
+
+                if (options.includeYT && apiKeys.youtube) {
+                    promises.push(getYouTubeContent(topic));
+                }
+
+                const results = await Promise.all(promises);
+                
+                // Flatten and sort results
+                results.forEach(result => {
+                    if (Array.isArray(result)) {
+                        allContent.push(...result);
+                    }
+                });
+
+                // Sort by timestamp (newest first)
+                allContent.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                // Remove duplicates
+                const uniqueContent = allContent.filter((item, index, self) => 
+                    index === self.findIndex(t => t.title === item.title)
+                );
+
+                todayCount += uniqueContent.length;
+                updateStats();
+                displayContent(uniqueContent);
+
+            } catch (error) {
+                console.error('Search error:', error);
+                contentFeed.innerHTML = '<div class="no-content"><h3>Search Error</h3><p>Something went wrong. Please try again.</p></div>';
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.textContent = '🚀 Discover Content';
+            }
+        }
+
+        // DISPLAY CONTENT
+        function displayContent(content) {
+            const contentFeed = document.getElementById('contentFeed');
+            
+            if (content.length === 0) {
+                contentFeed.innerHTML = '<div class="no-content"><h3>No content found</h3><p>Try a different topic or enable more sources</p></div>';
+                return;
+            }
+
+            contentFeed.innerHTML = content.map((item, index) => `
+                <div class="content-item" id="content-${index}">
+                    <div class="content-meta">
+                        <span>📰 ${item.source}</span>
+                        <span>🕒 ${formatTime(item.timestamp)}</span>
+                    </div>
+                    <div class="content-title">${item.title}</div>
+                    <div class="content-snippet">${item.snippet}</div>
+                    <a href="${item.url}" class="content-link" target="_blank">
+                        🔗 Read Full Article
+                    </a>
+                    <div class="tags">
+                        ${item.tags.slice(0, 4).map(tag => `<span class="tag">${tag}</span>`).join('')}
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-save" onclick="saveContent(${index})">
+                            💾 Save
+                        </button>
+                        <button class="btn btn-ai" onclick="generateAISuggestions(${index})">
+                            🤖 AI Ideas
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Store content for actions
+            window.currentContent = content;
+        }
+
+        // SAVE CONTENT
+        function saveContent(index) {
+            const item = window.currentContent[index];
+            if (!item) return;
+
+            const existingIndex = savedContent.findIndex(saved => saved.title === item.title);
+            if (existingIndex === -1) {
+                savedContent.push({
+                    ...item,
+                    savedAt: new Date().toISOString()
+                });
+                
+                localStorage.setItem('savedContent', JSON.stringify(savedContent));
+                displaySavedContent();
+                updateStats();
+
+                // Visual feedback
+                const button = event.target;
+                button.textContent = '✅ Saved!';
+                button.style.background = '#10b981';
+                setTimeout(() => {
+                    button.textContent = '💾 Save';
+                    button.style.background = '#10b981';
+                }, 2000);
+            } else {
+                alert('This content is already saved!');
+            }
+        }
+
+        // GENERATE AI SUGGESTIONS
+        async function generateAISuggestions(index) {
+            const item = window.currentContent[index];
+            if (!item) return;
+
+            const button = event.target;
+            const contentItem = document.getElementById(`content-${index}`);
+            
+            // Remove existing suggestions
+            const existingSuggestions = contentItem.querySelector('.ai-suggestions');
+            if (existingSuggestions) {
+                existingSuggestions.remove();
+                button.textContent = '🤖 AI Ideas';
+                return;
+            }
+
+            button.textContent = '🔄 Generating...';
+            button.disabled = true;
+
+            try {
+                let suggestions;
+                
+                if (apiKeys.huggingFace) {
+                    suggestions = await getHuggingFaceSuggestions(item);
+                } else {
+                    suggestions = getTemplateSuggestions(item);
+                }
+
+                const suggestionsHTML = `
+                    <div class="ai-suggestions">
+                        <h4>🤖 Content Expansion Ideas</h4>
+                        ${suggestions.map(suggestion => `
+                            <div class="suggestion-item">
+                                <strong>${suggestion.type}:</strong> ${suggestion.idea}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                contentItem.insertAdjacentHTML('beforeend', suggestionsHTML);
+                button.textContent = '✨ Hide Ideas';
+            } catch (error) {
+                console.error('AI suggestions error:', error);
+                alert('Error generating suggestions. Using template suggestions instead.');
+                
+                const suggestions = getTemplateSuggestions(item);
+                const suggestionsHTML = `
+                    <div class="ai-suggestions">
+                        <h4>💡 Content Ideas (Template)</h4>
+                        ${suggestions.map(suggestion => `
+                            <div class="suggestion-item">
+                                <strong>${suggestion.type}:</strong> ${suggestion.idea}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                contentItem.insertAdjacentHTML('beforeend', suggestionsHTML);
+                button.textContent = '✨ Hide Ideas';
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        // HUGGING FACE AI SUGGESTIONS
+        async function getHuggingFaceSuggestions(item) {
+            const prompt = `Generate 3 creative content ideas based on this article: "${item.title}". Format as: Type: Idea`;
+            
+            const response = await fetch('https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKeys.huggingFace}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    inputs: prompt,
+                    parameters: {
+                        max_new_tokens: 200,
+                        temperature: 0.7
+                    }
+                })
+            });
+
+            const data = await response.json();
+            
+            // Parse AI response or fallback to template
+            if (data && data.length > 0 && data[0].generated_text) {
+                const aiText = data[0].generated_text;
+                return parseAISuggestions(aiText, item);
+            } else {
+                return getTemplateSuggestions(item);
+            }
+        }
+
+        // TEMPLATE SUGGESTIONS (No API needed)
+        function getTemplateSuggestions(item) {
+            const title = item.title;
+            const mainTopic = item.tags[0] || 'this topic';
+            
+            return [
+                {
+                    type: "Deep Dive",
+                    idea: `"The Hidden Psychology Behind ${title}" - Explore the cognitive biases and mental models that most people miss`
+                },
+                {
+                    type: "Contrarian Take",
+                    idea: `"Why Everyone is Wrong About ${mainTopic}" - Challenge the conventional wisdom with alternative perspectives`
+                },
+                {
+                    type: "Practical Guide",
+                    idea: `"How to Apply ${title} Insights in Your Daily Life" - Turn theoretical concepts into actionable steps`
+                },
+                {
+                    type: "Case Study",
+                    idea: `"3 Companies That Successfully Applied ${mainTopic} Principles" - Real-world examples that illustrate the concepts`
+                },
+                {
+                    type: "Future Prediction",
+                    idea: `"Where ${mainTopic} Will Be in 5 Years" - Extrapolate current trends and make informed predictions`
+                }
+            ].slice(0, 3);
+        }
+
+        // PARSE AI SUGGESTIONS
+        function parseAISuggestions(aiText, item) {
+            // Try to extract structured suggestions from AI response
+            const lines = aiText.split('\n').filter(line => line.trim());
+            const suggestions = [];
+            
+            for (const line of lines) {
+                if (line.includes(':') && suggestions.length < 3) {
+                    const [type, idea] = line.split(':').map(s => s.trim());
+                    if (type && idea) {
+                        suggestions.push({ type, idea });
+                    }
+                }
+            }
+            
+            // Fallback to template if parsing fails
+            return suggestions.length > 0 ? suggestions : getTemplateSuggestions(item);
+        }
+
+        // RSS FEED MANAGEMENT
+        function addRSSFeed() {
+            const input = document.getElementById('rssInput');
+            const feedUrl = input.value.trim();
+            
+            if (!feedUrl) return;
+            
+            if (!feedUrl.includes('http') && !feedUrl.includes('feed') && !feedUrl.includes('rss')) {
+                alert('Please enter a valid RSS feed URL (should contain http, feed, or rss)');
+                return;
+            }
+            
+            if (!customRSSFeeds.includes(feedUrl)) {
+                customRSSFeeds.push(feedUrl);
+                input.value = '';
+                displayRSSFeeds();
+                updateStats();
+            } else {
+                alert('This RSS feed is already added!');
+            }
+        }
+
+        function displayRSSFeeds() {
+            const rssList = document.getElementById('rssList');
+            rssList.innerHTML = customRSSFeeds.map((feed, index) => `
+                <div class="rss-item">
+                    <span title="${feed}">${feed.length > 30 ? feed.substring(0, 30) + '...' : feed}</span>
+                    <button class="remove-rss" onclick="removeRSSFeed(${index})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function removeRSSFeed(index) {
+            customRSSFeeds.splice(index, 1);
+            displayRSSFeeds();
+            updateStats();
+        }
+
+        // SAVED CONTENT DISPLAY
+        function displaySavedContent() {
+            const savedFeed = document.getElementById('savedFeed');
+            
+            if (savedContent.length === 0) {
+                savedFeed.innerHTML = '<div class="no-content"><h3>Your saved content</h3><p>Save interesting articles to build your content library</p></div>';
+                return;
+            }
+
+            savedFeed.innerHTML = savedContent.slice(-10).reverse().map(item => `
+                <div class="content-item" style="margin-bottom: 12px; padding: 15px;">
+                    <div class="content-title" style="font-size: 0.9rem;">${item.title}</div>
+                    <div class="content-snippet" style="font-size: 0.8rem; margin-bottom: 8px;">${item.snippet.substring(0, 100)}...</div>
+                    <a href="${item.url}" class="content-link" target="_blank" style="font-size: 0.75rem;">
+                        🔗 View Source
+                    </a>
+                    <div class="tags" style="margin-top: 6px;">
+                        ${item.tags.slice(0, 3).map(tag => `<span class="tag" style="font-size: 0.65rem;">${tag}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // UTILITY FUNCTIONS
+        function extractTags(text) {
+            if (!text) return [];
+            
+            const commonTags = [
+                'AI', 'startup', 'tech', 'programming', 'business', 'science', 
+                'productivity', 'design', 'marketing', 'growth', 'development',
+                'machine learning', 'cryptocurrency', 'blockchain', 'python',
+                'javascript', 'react', 'data', 'security', 'cloud', 'mobile'
+            ];
+            
+            const foundTags = commonTags.filter(tag => 
+                text.toLowerCase().includes(tag.toLowerCase())
+            );
+            
+            return foundTags.length > 0 ? foundTags.slice(0, 5) : ['general'];
+        }
+
+        function stripHtml(html) {
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            return temp.textContent || temp.innerText || '';
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            return `${days}d ago`;
+        }
+
+        function updateStats() {
+            document.getElementById('todayCount').textContent = todayCount;
+            document.getElementById('savedCount').textContent = savedContent.length;
+            document.getElementById('sourceCount').textContent = customRSSFeeds.length + 3; // +3 for HN, Wiki, built-in sources
+        }
+    </script>
+</body>
+</html>
