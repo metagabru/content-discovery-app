@@ -638,14 +638,22 @@
                 'status-indicator' + (apiKeys.huggingFace ? ' active' : '');
         }
 
-        // HACKER NEWS API (Completely Free)
+        // HACKER NEWS API (Completely Free) - Improved search
         async function getHackerNewsContent(topic) {
             try {
+                // Get top stories first
                 const topStoriesRes = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
                 const topStoryIds = await topStoriesRes.json();
                 
+                // Also get new stories for more variety
+                const newStoriesRes = await fetch('https://hacker-news.firebaseio.com/v0/newstories.json');
+                const newStoryIds = await newStoriesRes.json();
+                
+                // Combine and get more stories to search through
+                const allStoryIds = [...topStoryIds.slice(0, 50), ...newStoryIds.slice(0, 30)];
+                
                 const stories = await Promise.all(
-                    topStoryIds.slice(0, 30).map(async (id) => {
+                    allStoryIds.slice(0, 60).map(async (id) => {
                         try {
                             const storyRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
                             return await storyRes.json();
@@ -655,20 +663,34 @@
                     })
                 );
 
-                const validStories = stories.filter(story => story && story.title);
-                const filteredStories = topic 
-                    ? validStories.filter(story => 
-                        story.title?.toLowerCase().includes(topic.toLowerCase())
-                      )
-                    : validStories.slice(0, 15);
+                const validStories = stories.filter(story => story && story.title && story.title.trim());
+                
+                let filteredStories;
+                if (topic) {
+                    // More flexible topic matching
+                    const topicLower = topic.toLowerCase();
+                    filteredStories = validStories.filter(story => {
+                        const titleLower = story.title.toLowerCase();
+                        const textLower = (story.text || '').toLowerCase();
+                        
+                        return titleLower.includes(topicLower) || 
+                               textLower.includes(topicLower) ||
+                               // Check for related terms
+                               (topicLower.includes('ai') && (titleLower.includes('artificial') || titleLower.includes('machine learning') || titleLower.includes('gpt'))) ||
+                               (topicLower.includes('crypto') && titleLower.includes('bitcoin')) ||
+                               (topicLower.includes('startup') && titleLower.includes('company'));
+                    });
+                } else {
+                    filteredStories = validStories.slice(0, 15);
+                }
 
-                return filteredStories.map(story => ({
+                return filteredStories.slice(0, 20).map(story => ({
                     title: story.title,
                     url: story.url || `https://news.ycombinator.com/item?id=${story.id}`,
-                    snippet: story.text || `Hacker News discussion with ${story.descendants || 0} comments`,
+                    snippet: story.text ? stripHtml(story.text).substring(0, 200) + '...' : `Hacker News discussion with ${story.descendants || 0} comments (Score: ${story.score || 0})`,
                     source: 'Hacker News',
                     timestamp: new Date(story.time * 1000).toISOString(),
-                    tags: extractTags(story.title),
+                    tags: extractTags(story.title + ' ' + (story.text || '')),
                     score: story.score || 0
                 }));
             } catch (error) {
@@ -677,33 +699,95 @@
             }
         }
 
-        // RSS FEEDS (Completely Free)
+        // RSS FEEDS (Completely Free) - Improved with better error handling
         async function getRSSContent(feedUrl, topic) {
             try {
-                const rssApiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=20`;
-                const response = await fetch(rssApiUrl);
-                const data = await response.json();
+                // Try primary RSS service
+                let rssApiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=20`;
+                let response = await fetch(rssApiUrl);
+                let data = await response.json();
 
-                if (data.status !== 'ok') return [];
+                // If primary service fails, try alternative
+                if (data.status !== 'ok') {
+                    console.log(`RSS2JSON failed for ${feedUrl}, trying alternative...`);
+                    // Try alternative RSS service
+                    rssApiUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(feedUrl)}`;
+                    response = await fetch(rssApiUrl);
+                    const rawData = await response.json();
+                    
+                    if (rawData.contents) {
+                        // Parse XML manually (basic parser)
+                        const xmlData = rawData.contents;
+                        const items = parseBasicRSS(xmlData, feedUrl);
+                        if (items.length > 0) {
+                            data = { status: 'ok', items: items, feed: { title: 'RSS Feed' } };
+                        }
+                    }
+                }
+
+                if (data.status !== 'ok' || !data.items) return [];
 
                 const filteredItems = topic
                     ? data.items.filter(item =>
                         item.title?.toLowerCase().includes(topic.toLowerCase()) ||
-                        item.description?.toLowerCase().includes(topic.toLowerCase())
+                        item.description?.toLowerCase().includes(topic.toLowerCase()) ||
+                        item.content?.toLowerCase().includes(topic.toLowerCase())
                       )
-                    : data.items.slice(0, 10);
+                    : data.items.slice(0, 8);
 
                 return filteredItems.map(item => ({
-                    title: item.title,
-                    url: item.link,
-                    snippet: stripHtml(item.description || item.content || '').substring(0, 200) + '...',
-                    source: `RSS: ${data.feed?.title || 'Blog'}`,
-                    timestamp: item.pubDate,
-                    tags: extractTags(item.title + ' ' + (item.description || ''))
-                }));
+                    title: item.title || 'Untitled',
+                    url: item.link || item.guid || '#',
+                    snippet: stripHtml(item.description || item.content || item.summary || '').substring(0, 200) + '...',
+                    source: `RSS: ${data.feed?.title || getDomainFromUrl(feedUrl)}`,
+                    timestamp: item.pubDate || item.published || new Date().toISOString(),
+                    tags: extractTags((item.title || '') + ' ' + (item.description || item.content || ''))
+                })).filter(item => item.title !== 'Untitled');
             } catch (error) {
-                console.error('RSS error:', error);
+                console.error(`RSS error for ${feedUrl}:`, error);
                 return [];
+            }
+        }
+
+        // Basic RSS XML parser for fallback
+        function parseBasicRSS(xmlString, feedUrl) {
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+                const items = xmlDoc.getElementsByTagName('item');
+                const results = [];
+
+                for (let i = 0; i < Math.min(items.length, 10); i++) {
+                    const item = items[i];
+                    const title = item.getElementsByTagName('title')[0]?.textContent;
+                    const link = item.getElementsByTagName('link')[0]?.textContent;
+                    const description = item.getElementsByTagName('description')[0]?.textContent;
+                    const pubDate = item.getElementsByTagName('pubDate')[0]?.textContent;
+
+                    if (title) {
+                        results.push({
+                            title: title,
+                            link: link,
+                            description: description,
+                            pubDate: pubDate || new Date().toISOString()
+                        });
+                    }
+                }
+
+                return results;
+            } catch (error) {
+                console.error('RSS parsing error:', error);
+                return [];
+            }
+        }
+
+        // Helper function to get domain from URL
+        function getDomainFromUrl(url) {
+            try {
+                const urlObj = new URL(url);
+                return urlObj.hostname.replace('www.', '');
+            } catch {
+                return 'RSS Feed';
             }
         }
 
@@ -712,37 +796,48 @@
             if (!topic) return [];
             
             try {
-                const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/search/${encodeURIComponent(topic)}`;
+                // Use Wikipedia's JSONP API to avoid CORS issues
+                const searchUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(topic)}&limit=5&format=json&origin=*`;
                 const searchResponse = await fetch(searchUrl);
                 const searchData = await searchResponse.json();
 
-                if (!searchData.pages || searchData.pages.length === 0) return [];
+                if (!searchData || searchData.length < 4) return [];
 
-                const articles = await Promise.all(
-                    searchData.pages.slice(0, 3).map(async (page) => {
-                        try {
-                            const contentUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(page.title)}`;
-                            const contentResponse = await fetch(contentUrl);
-                            const contentData = await contentResponse.json();
-                            
-                            return {
-                                title: contentData.title,
-                                url: contentData.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
-                                snippet: contentData.extract || 'Wikipedia article about ' + page.title,
-                                source: 'Wikipedia',
-                                timestamp: new Date().toISOString(),
-                                tags: [topic, 'Reference', 'Encyclopedia'],
-                                imageUrl: contentData.thumbnail?.source
-                            };
-                        } catch {
-                            return null;
-                        }
-                    })
-                );
+                const titles = searchData[1];
+                const descriptions = searchData[2];
+                const urls = searchData[3];
 
-                return articles.filter(article => article);
+                const articles = titles.slice(0, 3).map((title, index) => ({
+                    title: title,
+                    url: urls[index] || `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`,
+                    snippet: descriptions[index] || `Wikipedia article about ${title}`,
+                    source: 'Wikipedia',
+                    timestamp: new Date().toISOString(),
+                    tags: [topic, 'Reference', 'Encyclopedia']
+                }));
+
+                return articles.filter(article => article.title);
             } catch (error) {
                 console.error('Wikipedia error:', error);
+                // Fallback method using different endpoint
+                try {
+                    const fallbackUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&origin=*&srlimit=3`;
+                    const fallbackResponse = await fetch(fallbackUrl);
+                    const fallbackData = await fallbackResponse.json();
+                    
+                    if (fallbackData.query && fallbackData.query.search) {
+                        return fallbackData.query.search.map(item => ({
+                            title: item.title,
+                            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`,
+                            snippet: item.snippet ? item.snippet.replace(/<[^>]*>/g, '') : `Wikipedia article about ${item.title}`,
+                            source: 'Wikipedia',
+                            timestamp: new Date().toISOString(),
+                            tags: [topic, 'Reference', 'Encyclopedia']
+                        }));
+                    }
+                } catch (fallbackError) {
+                    console.error('Wikipedia fallback error:', fallbackError);
+                }
                 return [];
             }
         }
@@ -799,7 +894,7 @@
             }
         }
 
-        // MAIN SEARCH FUNCTION
+        // MAIN SEARCH FUNCTION - Improved with better error handling and debugging
         async function searchContent() {
             const topic = document.getElementById('topicInput').value.trim();
             if (!topic) {
@@ -825,39 +920,78 @@
                     includeYT: document.getElementById('includeYT').checked
                 };
 
-                // Fetch from all selected sources
+                console.log('Search options:', options, 'Topic:', topic);
+
+                // Fetch from all selected sources with individual error handling
                 const promises = [];
 
                 if (options.includeHN) {
-                    promises.push(getHackerNewsContent(topic));
-                }
-
-                if (options.includeRSS) {
-                    customRSSFeeds.forEach(feedUrl => {
-                        promises.push(getRSSContent(feedUrl, topic));
-                    });
+                    console.log('Fetching from Hacker News...');
+                    promises.push(
+                        getHackerNewsContent(topic).catch(error => {
+                            console.error('HN fetch failed:', error);
+                            return [];
+                        })
+                    );
                 }
 
                 if (options.includeWiki) {
-                    promises.push(getWikipediaContent(topic));
+                    console.log('Fetching from Wikipedia...');
+                    promises.push(
+                        getWikipediaContent(topic).catch(error => {
+                            console.error('Wikipedia fetch failed:', error);
+                            return [];
+                        })
+                    );
+                }
+
+                if (options.includeRSS) {
+                    console.log('Fetching from RSS feeds...');
+                    customRSSFeeds.forEach(feedUrl => {
+                        promises.push(
+                            getRSSContent(feedUrl, topic).catch(error => {
+                                console.error(`RSS fetch failed for ${feedUrl}:`, error);
+                                return [];
+                            })
+                        );
+                    });
                 }
 
                 if (options.includeNews && apiKeys.newsApi) {
-                    promises.push(getNewsContent(topic));
+                    console.log('Fetching from News API...');
+                    promises.push(
+                        getNewsContent(topic).catch(error => {
+                            console.error('News API fetch failed:', error);
+                            return [];
+                        })
+                    );
                 }
 
                 if (options.includeYT && apiKeys.youtube) {
-                    promises.push(getYouTubeContent(topic));
+                    console.log('Fetching from YouTube...');
+                    promises.push(
+                        getYouTubeContent(topic).catch(error => {
+                            console.error('YouTube fetch failed:', error);
+                            return [];
+                        })
+                    );
                 }
 
+                console.log(`Starting ${promises.length} API calls...`);
                 const results = await Promise.all(promises);
+                console.log('API results:', results);
                 
-                // Flatten and sort results
-                results.forEach(result => {
-                    if (Array.isArray(result)) {
+                // Flatten and filter results
+                results.forEach((result, index) => {
+                    if (Array.isArray(result) && result.length > 0) {
+                        console.log(`Source ${index} returned ${result.length} items`);
                         allContent.push(...result);
+                    } else {
+                        console.log(`Source ${index} returned no results`);
                     }
                 });
+
+                console.log(`Total content found: ${allContent.length}`);
 
                 // Sort by timestamp (newest first)
                 allContent.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -869,12 +1003,54 @@
 
                 todayCount += uniqueContent.length;
                 updateStats();
-                displayContent(uniqueContent);
+                
+                if (uniqueContent.length === 0) {
+                    // Show helpful message with debugging info
+                    contentFeed.innerHTML = `
+                        <div class="no-content">
+                            <h3>No content found for "${topic}"</h3>
+                            <p>This could be due to:</p>
+                            <ul style="text-align: left; margin: 15px 0;">
+                                <li>• The topic is too specific - try broader terms</li>
+                                <li>• API rate limits (especially for RSS feeds)</li>
+                                <li>• Network connectivity issues</li>
+                            </ul>
+                            <p style="margin-top: 15px;"><strong>Try:</strong></p>
+                            <ul style="text-align: left; margin: 10px 0;">
+                                <li>• "AI" instead of "artificial intelligence"</li>
+                                <li>• "startup" instead of "startup funding"</li>
+                                <li>• "programming" instead of "JavaScript programming"</li>
+                            </ul>
+                            <p style="margin-top: 15px; font-size: 0.8rem; color: #888;">
+                                Debug: Checked ${promises.length} sources
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    displayContent(uniqueContent);
+                }
 
             } catch (error) {
                 console.error('Search error:', error);
-                contentFeed.innerHTML = '<div class="no-content"><h3>Search Error</h3><p>Something went wrong. Please try again.</p></div>';
+                contentFeed.innerHTML = `
+                    <div class="no-content">
+                        <h3>Search Error</h3>
+                        <p>Something went wrong while searching. Please try:</p>
+                        <ul style="text-align: left; margin: 15px 0;">
+                            <li>• Checking your internet connection</li>
+                            <li>• Trying a different topic</li>
+                            <li>• Refreshing the page</li>
+                        </ul>
+                        <p style="margin-top: 15px; font-size: 0.8rem; color: #888;">
+                            Error: ${error.message}
+                        </p>
+                    </div>
+                `;
             } finally {
+                searchBtn.disabled = false;
+                searchBtn.textContent = '🚀 Discover Content';
+            }
+        }
                 searchBtn.disabled = false;
                 searchBtn.textContent = '🚀 Discover Content';
             }
